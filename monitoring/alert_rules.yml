@@ -1,0 +1,93 @@
+# OpenFn alert rules for Prometheus
+groups:
+- name: openfn_alerts
+  rules:
+  # Worker Queue Depth
+  - alert: WorkerQueueDepthHigh
+    expr: openfn_worker_queue_depth > 1000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High worker queue depth"
+      description: "Queue depth has been over 1000 for 5 minutes (current value: {{ $value }})"
+
+  # Job Processing Latency
+  - alert: JobProcessingLatencyHigh
+    expr: openfn_job_processing_duration_seconds > 30
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High job processing latency"
+      description: "Job processing taking longer than 30s (current: {{ $value }}s)"
+
+  # Database Connections
+  - alert: DatabaseConnectionsHigh
+    expr: pg_stat_activity_count > (pg_settings_max_connections * 0.8)
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High database connection count"
+      description: "Database connections > 80% of max ({{ $value }} connections)"
+
+  # Memory Usage
+  - alert: ContainerMemoryHigh
+    expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes * 100) > 85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High container memory usage"
+      description: "Container memory usage > 85% ({{ $value }}%)"
+
+  # CPU Usage
+  - alert: ContainerCPUHigh
+    expr: (rate(container_cpu_usage_seconds_total[5m]) * 100) > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High container CPU usage"
+      description: "Container CPU usage > 90% ({{ $value }}%)"
+
+  # Worker Health
+  - alert: WorkerDown
+    expr: up{job="openfn",service="worker"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Worker instance down"
+      description: "Worker instance has been down for > 1 minute"
+
+  # Lightning Service Health
+  - alert: LightningDown
+    expr: up{job="openfn",service="lightning"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Lightning service down"
+      description: "Lightning service has been down for > 1 minute"
+
+  # Redis Health
+  - alert: RedisDown
+    expr: up{job="redis"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Redis instance down"
+      description: "Redis instance has been down for > 1 minute"
+
+  # Error Rate
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High HTTP error rate"
+      description: "Error rate is above 5% ({{ $value }}%)"

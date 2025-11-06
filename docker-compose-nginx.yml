@@ -1,0 +1,86 @@
+# docker-compose-nginx.yml - single-host compose variant for Nginx TLS termination (no Traefik)
+version: '3.8'
+services:
+  postgres:
+    image: postgres:13-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:6-alpine
+    restart: unless-stopped
+    networks:
+      - backend
+
+  lightning:
+    image: openfn/lightning:latest
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend
+    ports:
+      - "8070:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  devtools:
+    image: openfn/devtools:latest
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    image: openfn/worker:latest
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend
+    deploy:
+      restart_policy:
+        condition: on-failure
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  pgdata:
+
+networks:
+  backend:
+    driver: bridge
+
+# Notes:
+# - This compose file intentionally omits Traefik so Nginx (host) can bind ports 80/443.
+# - Nginx should proxy_pass to http://127.0.0.1:8070 for the Lightning app.
