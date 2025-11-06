@@ -1,0 +1,14 @@
+# Database configuration
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=lightning_dev
+
+# Lightning configuration
+SECRET_KEY_BASE=MUIl7hZ3ztC6+s5pORSYRXKrh6nmB168Sx0i3FcR1qNXhUOLPsvG6X53jR2PG4/5
+PHX_HOST=localhost
+
+# Redis configuration
+REDIS_URL=redis://redis:6379
+
+# Application port
+PORT=4000
