@@ -83,6 +83,8 @@ docker stack ps openfn
 docker service ls
 ```
 
+Note: this Swarm stack no longer includes Traefik. The `lightning` service publishes port 8070 on the swarm nodes so a host-level Nginx (or other TLS terminator) can proxy to `http://<NODE-IP>:8070` or `http://127.0.0.1:8070` on the node where you run Nginx. If you prefer an in-cluster edge router, consider re-adding Traefik or using an ingress controller.
+
 ### Nginx Configuration
 
 1. Install Nginx and Certbot:

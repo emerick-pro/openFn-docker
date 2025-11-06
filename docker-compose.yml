@@ -2,27 +2,6 @@
 # For production and scaling use the docker-stack.yml (swarm) in this folder.
 version: '3.8'
 services:
-  traefik:
-    image: traefik:v2.10
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    command:
-      - --api.insecure=false
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.le.acme.tlschallenge=true
-      - --certificatesresolvers.le.acme.email=${LETSENCRYPT_EMAIL}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_letsencrypt:/letsencrypt
-    networks:
-      - proxy
-
   postgres:
     image: postgres:13-alpine
     restart: unless-stopped
@@ -56,14 +35,9 @@ services:
       - redis
     networks:
       - backend
-      - proxy
     ports:
       - "8070:80"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.lightning.rule=Host(`${LIGHTNING_HOST}`)"
-      - "traefik.http.routers.lightning.entrypoints=websecure"
-      - "traefik.http.routers.lightning.tls.certresolver=le"
+    # Note: Traefik labels removed. Use host Nginx (nginx_openfn.conf) to proxy to port 8070.
     logging:
       driver: json-file
       options:
@@ -79,12 +53,7 @@ services:
       - postgres
     networks:
       - backend
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.devtools.rule=Host(`${DEVTOOLS_HOST}`)"
-      - "traefik.http.routers.devtools.entrypoints=websecure"
-      - "traefik.http.routers.devtools.tls.certresolver=le"
+    # Traefik labels removed to avoid conflicts with host-level Nginx
 
   worker:
     image: openfn/worker:latest  # REPLACE with official image
@@ -106,11 +75,9 @@ services:
 
 volumes:
   pgdata:
-  traefik_letsencrypt:
+  # traefik_letsencrypt: removed (using host Nginx/certbot for TLS)
 
 networks:
-  proxy:
-    driver: bridge
   backend:
     driver: bridge
 

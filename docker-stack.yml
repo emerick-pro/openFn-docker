@@ -2,24 +2,7 @@
 # Use `docker stack deploy -c docker-stack.yml openfn` after initializing the swarm.
 version: '3.8'
 services:
-  traefik:
-    image: traefik:v2.10
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_letsencrypt:/letsencrypt
-    networks:
-      - proxy
-    deploy:
-      placement:
-        constraints: [node.role == manager]
-      replicas: 1
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
+services:
 
   postgres:
     image: postgres:13-alpine
@@ -55,12 +38,9 @@ services:
       - postgres_password
     networks:
       - backend
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.lightning.rule=Host(`${LIGHTNING_HOST}`)"
-      - "traefik.http.routers.lightning.entrypoints=websecure"
-      - "traefik.http.routers.lightning.tls.certresolver=le"
+    ports:
+      - "8070:80"
+    # Traefik labels and proxy network removed: use host-level TLS (Nginx) to route to this service on port 8070
     deploy:
       replicas: 2
       update_config:
@@ -79,12 +59,7 @@ services:
       - postgres_password
     networks:
       - backend
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.devtools.rule=Host(`${DEVTOOLS_HOST}`)"
-      - "traefik.http.routers.devtools.entrypoints=websecure"
-      - "traefik.http.routers.devtools.tls.certresolver=le"
+    # Traefik labels and proxy network removed: host Nginx should handle TLS and routing
     deploy:
       replicas: 1
 
@@ -105,11 +80,9 @@ services:
 
 volumes:
   pgdata:
-  traefik_letsencrypt:
+  # traefik_letsencrypt: (removed - TLS handled by host Nginx/certbot)
 
 networks:
-  proxy:
-    external: false
   backend:
     external: false
 
