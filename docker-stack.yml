@@ -1,0 +1,126 @@
+# docker-stack.yml - production (Docker Swarm)
+# Use `docker stack deploy -c docker-stack.yml openfn` after initializing the swarm.
+version: '3.8'
+services:
+  traefik:
+    image: traefik:v2.10
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - proxy
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  postgres:
+    image: postgres:13-alpine
+    env_file: .env
+    configs: []
+    secrets:
+      - postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      placement:
+        constraints: [node.role == worker]
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  redis:
+    image: redis:6-alpine
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+
+  lightning:
+    image: openfn/lightning:latest
+    env_file: .env
+    secrets:
+      - app_secret
+      - postgres_password
+    networks:
+      - backend
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lightning.rule=Host(`${LIGHTNING_HOST}`)"
+      - "traefik.http.routers.lightning.entrypoints=websecure"
+      - "traefik.http.routers.lightning.tls.certresolver=le"
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1G
+
+  devtools:
+    image: openfn/devtools:latest
+    env_file: .env
+    secrets:
+      - app_secret
+      - postgres_password
+    networks:
+      - backend
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.devtools.rule=Host(`${DEVTOOLS_HOST}`)"
+      - "traefik.http.routers.devtools.entrypoints=websecure"
+      - "traefik.http.routers.devtools.tls.certresolver=le"
+    deploy:
+      replicas: 1
+
+  worker:
+    image: openfn/worker:latest
+    env_file: .env
+    secrets:
+      - app_secret
+      - postgres_password
+    networks:
+      - backend
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1G
+
+volumes:
+  pgdata:
+  traefik_letsencrypt:
+
+networks:
+  proxy:
+    external: false
+  backend:
+    external: false
+
+secrets:
+  postgres_password:
+    external: true
+  app_secret:
+    external: true
+
+# Notes:
+# - Create Docker secrets before `docker stack deploy`:
+#   docker secret create postgres_password ./secrets/postgres_password.txt
+#   docker secret create app_secret ./secrets/app_secret.txt
+# - The stack uses replicas and deploy settings which only apply in Swarm mode.

@@ -1,0 +1,119 @@
+# docker-compose.yml - development / single-host convenience file
+# For production and scaling use the docker-stack.yml (swarm) in this folder.
+version: '3.8'
+services:
+  traefik:
+    image: traefik:v2.10
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command:
+      - --api.insecure=false
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email=${LETSENCRYPT_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - proxy
+
+  postgres:
+    image: postgres:13-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:6-alpine
+    restart: unless-stopped
+    networks:
+      - backend
+
+  lightning:
+    image: openfn/lightning:latest  # REPLACE with the official image tag if different
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend
+      - proxy
+    ports:
+      - "8070:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lightning.rule=Host(`${LIGHTNING_HOST}`)"
+      - "traefik.http.routers.lightning.entrypoints=websecure"
+      - "traefik.http.routers.lightning.tls.certresolver=le"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # For single-host compose we use .env for secrets. For swarm, see docker-stack.yml
+
+  devtools:
+    image: openfn/devtools:latest  # REPLACE with official image
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    networks:
+      - backend
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.devtools.rule=Host(`${DEVTOOLS_HOST}`)"
+      - "traefik.http.routers.devtools.entrypoints=websecure"
+      - "traefik.http.routers.devtools.tls.certresolver=le"
+
+  worker:
+    image: openfn/worker:latest  # REPLACE with official image
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend
+    deploy:
+      restart_policy:
+        condition: on-failure
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  pgdata:
+  traefik_letsencrypt:
+
+networks:
+  proxy:
+    driver: bridge
+  backend:
+    driver: bridge
+
+# NOTE:
+# - This compose file is convenient for getting started on a single host.
+# - For production with scaling and secrets, use the docker-stack.yml and Docker Swarm or Kubernetes.
