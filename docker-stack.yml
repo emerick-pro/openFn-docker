@@ -1,6 +1,5 @@
 # docker-stack.yml - production (Docker Swarm)
 # Use `docker stack deploy -c docker-stack.yml openfn` after initializing the swarm.
-version: '3.8'
 services:
 services:
 
@@ -31,7 +30,7 @@ services:
       replicas: 1
 
   lightning:
-    image: openfn/lightning:latest
+    image: ghcr.io/openfn/lightning:latest
     env_file: .env
     secrets:
       - app_secret
@@ -52,7 +51,7 @@ services:
           memory: 1G
 
   devtools:
-    image: openfn/devtools:latest
+    image: ghcr.io/openfn/devtools:latest
     env_file: .env
     secrets:
       - app_secret
@@ -64,7 +63,7 @@ services:
       replicas: 1
 
   worker:
-    image: openfn/worker:latest
+    image: ghcr.io/openfn/worker:latest
     env_file: .env
     secrets:
       - app_secret

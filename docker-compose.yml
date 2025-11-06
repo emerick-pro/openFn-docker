@@ -1,6 +1,5 @@
 # docker-compose.yml - development / single-host convenience file
 # For production and scaling use the docker-stack.yml (swarm) in this folder.
-version: '3.8'
 services:
   postgres:
     image: postgres:13-alpine
@@ -27,7 +26,7 @@ services:
       - backend
 
   lightning:
-    image: openfn/lightning:latest  # REPLACE with the official image tag if different
+    image: ghcr.io/openfn/lightning:latest  # Consider using a specific version tag
     env_file: .env
     restart: unless-stopped
     depends_on:
@@ -46,7 +45,7 @@ services:
     # For single-host compose we use .env for secrets. For swarm, see docker-stack.yml
 
   devtools:
-    image: openfn/devtools:latest  # REPLACE with official image
+    image: ghcr.io/openfn/devtools:latest  # Consider using a specific version tag
     env_file: .env
     restart: unless-stopped
     depends_on:
@@ -56,7 +55,7 @@ services:
     # Traefik labels removed to avoid conflicts with host-level Nginx
 
   worker:
-    image: openfn/worker:latest  # REPLACE with official image
+    image: ghcr.io/openfn/worker:latest  # Consider using a specific version tag
     env_file: .env
     restart: unless-stopped
     depends_on:
